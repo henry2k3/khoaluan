@@ -1,0 +1,35 @@
+{
+  "name": "restaurant-qr-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=.env --watch src/server.js",
+    "start": "node --env-file=.env src/server.js",
+    "check:db": "node --env-file=.env scripts/checkDatabase.js",
+    "check:data": "node --env-file=.env scripts/checkData.js",
+    "explain:dashboard": "node --env-file=.env scripts/explainDashboard.js",
+    "create:user": "node --env-file=.env scripts/createUser.js",
+    "test": "node --test tests/*.test.js",
+    "test:browser:orders": "node tests-browser/orders.mjs",
+    "test:browser:workflow": "node tests-browser/workflow.mjs",
+    "test:browser:realtime": "node tests-browser/realtime.mjs",
+    "test:browser:dashboard": "node tests-browser/dashboard.mjs"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.10.1",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.3"
+  }
+}

@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+coverage/
+
+# Cấu hình công cụ cục bộ, bản sao lưu database và khóa riêng.
+.codex/
+.agents/
+dump/
+dumps/
+backup/
+backups/
+*.bson
+*.archive
+*.archive.gz
+*.pem
+*.key
+*.p12
+*.pfx

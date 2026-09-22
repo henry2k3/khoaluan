@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480" role="img" aria-label="Minh họa tách cà phê">
+  <rect width="640" height="480" fill="#f1eade"/>
+  <circle cx="320" cy="230" r="170" fill="#e4d6c0"/>
+  <ellipse cx="320" cy="360" rx="180" ry="24" fill="#c6b394"/>
+  <path d="M415 206h27c76 0 76 106 0 106h-30" fill="none" stroke="#fffaf1" stroke-width="27"/>
+  <path d="M199 195h232l-18 111c-9 76-188 76-197 0z" fill="#fffaf1"/>
+  <ellipse cx="315" cy="196" rx="116" ry="32" fill="#ded0bb"/>
+  <ellipse cx="315" cy="196" rx="99" ry="23" fill="#60422d"/>
+  <path d="M272 153c-33-39 35-39 4-78m51 80c-33-39 35-39 4-78m51 80c-33-39 35-39 4-78" fill="none" stroke="#af997b" stroke-linecap="round" stroke-width="8"/>
+</svg>
