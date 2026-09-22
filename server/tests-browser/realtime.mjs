@@ -14,7 +14,7 @@ import { createInternalUser } from '../src/services/userService.js';
 const config = parseEnv(
   await readFile(new URL('../.env', import.meta.url), 'utf8'),
 );
-const frontend = config.CLIENT_ORIGIN;
+const frontend = (process.env.BROWSER_FRONTEND_URL || config.CLIENT_ORIGIN?.split(',')[0] || config.PUBLIC_APP_URL).trim().replace(/\/+$/, '');
 const backend = `http://localhost:${config.PORT || 3000}/api`;
 const debugURL = process.env.CHROME_DEBUG_URL || 'http://127.0.0.1:9224';
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

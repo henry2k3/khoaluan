@@ -1,8 +1,9 @@
 import axios from 'axios';
+import { apiBaseUrl } from './baseUrl.js';
 
 // Client riêng cho khách: không đọc token đăng nhập, không gắn Authorization/JWT.
 const publicClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
+  baseURL: apiBaseUrl,
   timeout: 10000,
 });
 

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --env-file=.env --watch src/server.js",
-    "start": "node --env-file=.env src/server.js",
+    "start": "node --env-file-if-exists=.env src/server.js",
     "check:db": "node --env-file=.env scripts/checkDatabase.js",
     "check:data": "node --env-file=.env scripts/checkData.js",
     "explain:dashboard": "node --env-file=.env scripts/explainDashboard.js",
@@ -14,7 +14,10 @@
     "test:browser:orders": "node tests-browser/orders.mjs",
     "test:browser:workflow": "node tests-browser/workflow.mjs",
     "test:browser:realtime": "node tests-browser/realtime.mjs",
-    "test:browser:dashboard": "node tests-browser/dashboard.mjs"
+    "test:browser:dashboard": "node tests-browser/dashboard.mjs",
+    "seed:demo": "node --env-file-if-exists=.env scripts/seedDemo.js",
+    "reset:demo": "node --env-file-if-exists=.env scripts/resetDemo.js",
+    "test:browser:production": "node tests-browser/production.mjs"
   },
   "engines": {
     "node": ">=22.12.0"

@@ -447,3 +447,205 @@ Gồm 230 test của cuối 9A và 4 test hồi quy mới. Log lần chạy toà
 **[TOOL CHẠY THỦ CÔNG — kiểm tra nội dung stage]** Kiểm tra lại danh sách/blob được stage trước commit: chỉ source, test, tài liệu, package/lockfile và cấu hình mẫu; không stage `.env`, node_modules, dist, dump, backup hoặc khóa riêng. Secret thực tế được đối chiếu mà không in giá trị. Các thông báo thiếu Git/danh tính ở những phần trước là kết quả lịch sử của lúc kiểm tra, đã được giải quyết trong bước checkpoint này.
 
 Có thể kiểm tra checkpoint sau khi tạo bằng `git log -1 --oneline`, `git show --no-patch giai-doan-9a`, `git status --short`. Không push lên GitHub trong bước tạo checkpoint local này; chưa thực hiện 9B.
+
+---
+
+# GIAI ĐOẠN 9B — LAN, demo và chuẩn bị production
+
+Ngày thực hiện: **22/09/2026**. Phần 9A/9C phía trên giữ nguyên như nhật ký lịch sử. Lượt này chỉ làm phạm vi 9B đã duyệt; không đổi schema/API nghiệp vụ, không thêm dependency, không commit/push, không triển khai lên hosting và không viết lại tài liệu bảo vệ.
+
+**[TOOL CHẠY THỦ CÔNG — Git và đối chiếu danh sách duyệt]** Bắt đầu từ working tree sạch, commit `dcff025`, tag `giai-doan-9a`. Không tồn tại `giai-doan-8`, nên không thể review diff từ tag đó và không tạo tag giả. Review thay đổi từ checkpoint 9A đến working tree hiện tại. Henry đã duyệt danh sách ban đầu và bổ sung realtimeServer.js, ba script browser cũ cùng client/.env local.
+
+## A. Mobile/LAN
+
+**[TOOL CHẠY THỦ CÔNG — đọc API trình duyệt và cấu hình]** `newRequestId` tại [guestStorage.js](client/src/utils/guestStorage.js) dùng `crypto.getRandomValues`, không dùng randomUUID; không tìm thấy clipboard hoặc API secure-context khác cần sửa trong source. Vite giữ nguyên config, dùng `--host 0.0.0.0` để mở LAN. Backend hiện dùng `server.listen(env.port)` không giới hạn localhost. Không hardcode IP thật vào source.
+
+**[TEST TỰ ĐỘNG]** [production.mjs](server/tests-browser/production.mjs) chạy Chrome desktop thật ở 375px, mở bản build qua IP LAN của Mac. Assert `isSecureContext === false`; vẫn thêm giỏ/gửi order được, refresh trang đơn giữ tracking, staff nhận đơn và cập nhật khách, dashboard/bàn thay đổi đúng. Script cũng chạy đạt qua loopback. Đây không phải điện thoại vật lý và không kiểm tra đường truyền từ thiết bị khác qua access point.
+
+**[TOOL CHẠY THỦ CÔNG — đọc storage]** JWT nằm trong **sessionStorage**: hướng dẫn demo yêu cầu **mở tab mới độc lập hoặc đổi từ localhost sang IP phải đăng nhập lại**. Test mở tab mới độc lập cùng browser context xác nhận về trang login. Một số trình duyệt có thể sao chép sessionStorage khi nhân bản tab hoặc có opener; không dựa vào đó cho demo. Giỏ/token khách trong localStorage cũng tách theo origin; đổi IP không tự chuyển lịch sử sang origin mới. Nguồn: [authStorage.js](client/src/utils/authStorage.js), [guestStorage.js](client/src/utils/guestStorage.js).
+
+**[CHƯA KIỂM TRA — Henry cần làm]** Android Chrome, iOS Safari, camera quét QR, khóa màn hình, chuyển app, tắt Wi-Fi 20 giây và mạng phòng bảo vệ. Checklist 13 bước và cách xử lý firewall, AP isolation, khác mạng, IP đổi, VPN, bind localhost/hotspot nằm ở [README mục 17](README.md#17-9b--chạy-lan-và-điện-thoại).
+
+## B. PUBLIC_APP_URL
+
+**[TOOL CHẠY THỦ CÔNG — đối chiếu getTableQr]** [tableController.js](server/src/controllers/tableController.js) dựng URL/ảnh QR ở backend từ PUBLIC_APP_URL và qrToken. Không ghi URL đầy đủ hoặc ảnh vào MongoDB. Khi đổi IP/domain, chỉ sửa env và restart server, mở lại QR; giữ nguyên qrToken, không build lại frontend chỉ vì đổi QR.
+
+**[TEST TỰ ĐỘNG]** Browser production lấy QR Bàn 05 qua API admin, assert `menuUrl` đúng origin server thử và đúng qrToken, rồi mở menu đó. Bàn 05 sau seed đang hoạt động và chưa có order đang xử lý.
+
+**[TOOL CHẠY THỦ CÔNG — kiểm tra build env]** Client đã bỏ fallback localhost cố định. [baseUrl.js](client/src/api/baseUrl.js) ưu tiên VITE_API_BASE_URL nếu có; để trống thì dev dùng hostname trang + cổng 3000, production dùng `/api`. Đã bỏ giá trị localhost trong client/.env local và cập nhật .env.example. **Henry cần tự bỏ giá trị cũ trong client/.env trên các máy khác**; file local không commit. Nếu dùng VITE_* override production, thay giá trị phải build lại; không được chứa secret. File `.env.development` có thể chứa override dành riêng dev, nhưng cấu hình chuẩn không cần tạo file đó.
+
+## C. CORS/Socket.IO LAN
+
+**[TOOL CHẠY THỦ CÔNG — đọc env/app/realtime]** [env.js](server/src/config/env.js) parse CLIENT_ORIGIN một lần: tách dấu phẩy, trim, bỏ slash cuối, kiểm tra URL origin hợp lệ, loại trùng và cộng PUBLIC_APP_URL. Express và Socket.IO cùng dùng `env.allowedOrigins`. Không wildcard/regex origin; so khớp chính xác. Request không có Origin được qua lớp CORS; JWT/trackingToken vẫn bắt buộc khi nghiệp vụ yêu cầu. CLIENT_ORIGIN trống được hỗ trợ nếu có PUBLIC_APP_URL. Cấu hình cũ một CLIENT_ORIGIN vẫn dùng được; khi PUBLIC_APP_URL trống, lấy origin đầu tiên để tương thích.
+
+**[TEST TỰ ĐỘNG]** [productionServe.test.js](server/tests/productionServe.test.js) xác minh:
+
+- Origin localhost, LAN thử và origin PUBLIC_APP_URL đều qua API, polling, WebSocket.
+- Origin khác và tên gần giống có hậu tố domain giả bị API trả 403, socket từ chối kết nối.
+- Không Origin: API vẫn yêu cầu JWT (401 nếu thiếu), socket khách kết nối và nhận ACK được.
+- Production không CLIENT_ORIGIN: API/polling/WebSocket vẫn qua nhờ PUBLIC_APP_URL.
+- Một origin kiểu dev cũ vẫn hoạt động; cấu hình wildcard/path bị từ chối.
+
+**[TOOL CHẠY THỦ CÔNG — đọc ba script browser đã sửa]** orders.mjs/workflow.mjs/realtime.mjs chọn `BROWSER_FRONTEND_URL` nếu có, nếu không lấy origin CLIENT_ORIGIN đầu tiên hoặc PUBLIC_APP_URL. Không lấy nguyên danh sách có dấu phẩy làm URL; không đổi assertion. Chưa chạy lại ba script này trong 9B; test backend cũ và browser production mới đã chạy.
+
+## D. Seed demo
+
+**[TOOL CHẠY THỦ CÔNG — đọc CLI]** `npm --prefix server run seed:demo` chạy [seedDemo.js](server/scripts/seedDemo.js), dùng [demoData.js](server/scripts/demoData.js). Mật khẩu bắt buộc lấy từ DEMO_ADMIN_PASSWORD/DEMO_STAFF_PASSWORD, kiểm tra trước khi ghi. User tạo qua `createInternalUser` và bcrypt, không insertMany/insert thô. Seed kiểm tra mọi collection có bản ghi thì từ chối; không tự xóa hoặc ghi đè. Kết nối tắt autoIndex/autoCreate trước khi kiểm tra rỗng, sau đó tạo collection/index đúng schema hiện có.
+
+**[TEST TỰ ĐỘNG]** Seed trên database thử rỗng tạo:
+
+| Collection/nội dung | Số lượng |
+|---|---:|
+| users | 3: 1 admin, 2 staff |
+| categories | 5 |
+| products | 20 |
+| tables | 10 |
+| orders | 12 |
+| order items | 24 |
+
+Tài khoản: demo_admin/demo_staff1/demo_staff2. Có 8 completed, 1 cancelled, 1 pending, 1 confirmed, 1 preparing; đủ customerName/table/snapshot/ghi chú/lịch sử. Ngày mẫu dựa trên lúc chạy seed: hôm nay, hôm qua, 3/6 ngày trước, theo ngày Việt Nam. Chỉ completed có paidAt; không sinh paidAt tương lai ngay sau 00:00. Bàn 05 active, QR 48 ký tự hex duy nhất, không có active order; ba đơn đang xử lý ở bàn khác.
+
+**[TEST TỰ ĐỘNG]** CLI tự chạy script `check:data` hiện có sau seed; thực đọc **12 orders, 24 items**, kết quả:
+
+```text
+completedWithoutPaidAt: 0
+itemsWithWrongLineTotal: 0
+ordersWithWrongTotal: 0
+itemsWithoutProductId: 0
+passed: true
+```
+
+Nguồn assertion: [demo.test.js](server/tests/demo.test.js). Đây là MongoDB thử có dữ liệu thật, không phải kết quả trên DB rỗng. Test còn đăng nhập thành công cả admin và hai staff, kiểm tra hash/index unique, seed lần hai/collection lạ bị từ chối, production thiếu mật khẩu bị từ chối. Database thử được dọn sau khi xong. **Chưa seed/reset database quán hiện tại hoặc tạo mật khẩu demo cố định cho Henry.**
+
+**[TOOL CHẠY THỦ CÔNG — rà soát cách vận hành]** Seed còn kiểm tra tên DB kết nối thật đúng DEMO_DB_NAME và không phải admin/config/local. Chạy từng tiến trình seed/reset, dừng backend demo lúc reset; không có transaction cho toàn bộ seed. Nếu ghi lỗi giữa chừng, giữ phần đã ghi và báo lỗi; Henry quyết định reset demo, không tự xóa. Đơn mẫu để demo nội bộ/dashboard; không phát token xem đơn mẫu cho trình duyệt. Demo khách dùng QR để đặt đơn mới.
+
+## E. Reset demo
+
+**[TOOL CHẠY THỦ CÔNG — đọc resetDemo]** [resetDemo.js](server/scripts/resetDemo.js) chỉ cho xóa khi đồng thời NODE_ENV khác production, có `--confirm`, `connection.name` thật bằng DEMO_DB_NAME. Không parse URI để lấy tên phục vụ kiểm tra quyền. Chặn thêm database hệ thống; in host/database trước dropDatabase, không in credentials/URI. Không có endpoint reset.
+
+```bash
+npm --prefix server run reset:demo -- --confirm
+```
+
+**[TEST TỰ ĐỘNG]** Thiếu confirm, production hoặc sai tên đều bị từ chối đúng lý do; dữ liệu không đổi. Đủ ba điều kiện xóa đúng database thử, database chứng kiến khác vẫn còn bản ghi. Sau reset, seed lại được. Tên database thử ngẫu nhiên khác DEMO_DB_NAME thật; không dùng reset CLI lên database quán.
+
+## F. Production architecture
+
+**[TOOL CHẠY THỦ CÔNG — đọc app/server]** Express **5.2.1** phục vụ `client/dist` khi NODE_ENV=production, API/Socket.IO cùng HTTP server hiện có. SPA fallback `/{*path}` đặt sau API/socket; asset thiếu hoặc API sai không trả index.html. Không đổi kiến trúc nghiệp vụ, không Redis, chạy một Node instance.
+
+**[TOOL CHẠY THỦ CÔNG — npm start và curl]** Chạy thật `npm --prefix server start` với env production ở cổng thử 3108: backend khởi động/kết nối MongoDB; `/api/health` 200 connected, `/admin/dashboard` 200 HTML, `/api/duong-dan-khong-ton-tai` JSON 404, Socket.IO polling handshake 200 khi CLIENT_ORIGIN trống. Tiến trình thử được dừng sau kiểm tra; không deploy hoặc reset dữ liệu.
+
+**[TOOL CHẠY THỦ CÔNG — đọc log khi dừng tiến trình thử]** Phiên npm start được giữ chạy trong khoảng chờ có nhiều log MongoDB mất kết nối rồi kết nối lại. Các request curl cuối vẫn trả 200/connected; server không dừng. Chưa xác định nguyên nhân gián đoạn từ log này, không kết luận là bug của thay đổi 9B hoặc tự sửa cấu hình database ngoài danh sách duyệt.
+
+**[CHƯA KIỂM TRA — Henry cần làm]** Hosting phải chạy Node liên tục, WebSocket, HTTPS/WSS, env; không dùng backend serverless request ngắn. Chưa deploy/kiểm tra reverse proxy hoặc gói free/sleep thật; cần xác minh từ nhà cung cấp đã chọn và mở server trước buổi bảo vệ nếu có sleep.
+
+## G. Production env
+
+**[TOOL CHẠY THỦ CÔNG — đối chiếu env/package]** Cần NODE_ENV=production, PORT, MONGODB_URI, JWT_SECRET, ORDER_TOKEN_SECRET, PUBLIC_APP_URL=https://domain-thuc-te.com. CLIENT_ORIGIN tùy chọn khi cùng domain; TRUST_PROXY mặc định 0, cấu hình số hop 1–10 chỉ khi đúng topology proxy tin cậy. Test xác nhận app nhận giá trị và từ chối true/wildcard. Chưa cam kết proxy hosting thật khi chưa deploy.
+
+**[TOOL CHẠY THỦ CÔNG — kiểm tra file local/build]** `npm start` dùng --env-file-if-exists để hosting chỉ có env vẫn chạy được. Không đổi secret server hiện tại; .env.example chỉ có tên biến/mẫu không nhạy cảm. Không sửa server/.env. Client/.env đã để trống API, không đưa vào Git. Build 6 file được đối chiếu giá trị CREATE_USER_PASSWORD, JWT_SECRET, MONGODB_URI, ORDER_TOKEN_SECRET đang cấu hình: không tìm thấy; báo cáo chỉ ghi tên biến, không ghi giá trị. Không có dependency mới hoặc thay package-lock.
+
+## H. React production build
+
+**[TOOL CHẠY THỦ CÔNG — chạy build]** Tại gốc project, build client **trước** start server:
+
+```bash
+npm --prefix client run build
+NODE_ENV=production PORT=3000 PUBLIC_APP_URL=http://localhost:3000 CLIENT_ORIGIN= TRUST_PROXY=0 npm --prefix server start
+```
+
+Trên hosting, cài client bằng `npm --prefix client ci --include=dev` trước build để có Vite/Tailwind, rồi cài server `npm --prefix server ci --omit=dev` và start. Giữ `client/dist` trong artifact. README mục 19–20 có đầy đủ lệnh và env.
+
+**[TOOL CHẠY THỦ CÔNG — output Vite]** Build thành công, Vite 8.3.0, 236 modules, 122ms:
+
+| File | kB | gzip kB |
+|---|---:|---:|
+| dist/index.html | 0.47 | 0.32 |
+| dist/assets/index-DYCij2h3.css | 25.73 | 5.73 |
+| dist/assets/DashboardPage--wO-D0Y9.js | 160.76 | 56.01 |
+| dist/assets/index-CYun4M2y.js | 425.06 | 131.16 |
+
+**[TOOL CHẠY THỦ CÔNG — tìm trong dist]** `rg 'localhost:3000' client/dist` không có kết quả (exit 1 nghĩa là không tìm thấy). Chart.js vẫn ở chunk dashboard riêng. Đây là kích thước build thật, không phải đo tốc độ tải mạng hoặc điện thoại.
+
+## I. Socket.IO production
+
+**[TEST TỰ ĐỘNG]** Browser trên bản build thật đi qua Express: staff/admin login từ tài khoản seed; khách nhập tên/chọn hai món/ghi chú/gửi order; staff nhận đơn mới; khách nhận confirmed/preparing/served/completed; dashboard tăng đúng tiền; bàn tự bận rồi trống. Ngắt mạng khách và đóng transport để bỏ lỡ preparing; bật mạng lại → reconnect/rejoin/ACK/refetch thấy trạng thái đúng. API đều gọi cùng origin. Tất cả chạy khi CLIENT_ORIGIN trống và PUBLIC_APP_URL đặt đúng origin thử.
+
+**[TEST TỰ ĐỘNG]** 30 test Socket.IO cũ vẫn đạt: JWT, trackingToken/room, chống emit khi requestId trùng, lỗi emit không làm API lỗi, conflict 409, khóa/logout, reconnect. Thay đổi 9B chỉ origin, không rewrite nghiệp vụ hoặc listener.
+
+**[CHƯA KIỂM TRA — Henry cần làm]** HTTPS/WSS qua hosting/proxy thật, điện thoại chuyển Wi-Fi/4G hoặc ngủ lâu. Chrome kiểm thử là HTTP; không gọi kết quả đó là đã test WSS production.
+
+## J. MongoDB backup/restore
+
+**[TOOL CHẠY THỦ CÔNG — kiểm tra tools và tài liệu chính thức]** Container MongoDB có mongodump/mongorestore **100.18.0**. README mục 21 hướng dẫn backup bằng archive/gzip, restore vào database mới/rỗng qua nsFrom/nsTo, sau đó check:data. Không có --drop trong ví dụ. Đối chiếu [mongodump](https://www.mongodb.com/docs/database-tools/mongodump/) và [mongorestore](https://www.mongodb.com/docs/database-tools/mongorestore/); không truyền URI có mật khẩu vào history, dùng config riêng/prompt khi cần xác thực.
+
+**[CHƯA KIỂM TRA — Henry cần làm]** Chưa dump/restore thực tế ở lượt này; không restore destructive vào DB hiện tại. Cần thực hành phục hồi ở DB thử, kiểm tra index/dữ liệu, lưu bản sao cùng kế hoạch giữ secret vận hành an toàn. Backup Atlas phụ thuộc gói; chưa xác minh gói của Henry nên không khẳng định có sẵn.
+
+## K. Test/build
+
+**[TEST TỰ ĐỘNG]** Toàn bộ `npm --prefix server test`, lần chạy cuối sau sửa code/test mới:
+
+```text
+tests 292
+suites 9
+pass 292
+fail 0
+cancelled 0
+skipped 0
+todo 0
+duration_ms 5429.842125
+```
+
+234 test baseline sau 9A giữ nguyên + **26 test demo** + **32 test production/CORS/fallback**. Không xóa/skip/nới assertion cũ. Lần chạy trong sandbox bị EPERM kết nối/cổng thử đã dừng, sau đó chạy ngoài sandbox với quyền được duyệt; không ghi lần bị chặn thành pass. Log kết quả cuối: `/private/tmp/restaurant-9b-tests.log`.
+
+**[TEST TỰ ĐỘNG]** Browser production mới dùng Chrome DevTools Protocol qua WebSocket/fetch của Node và dependencies đã có, **không Playwright/Puppeteer, không thuộc npm test mặc định**. Chạy riêng `npm --prefix server run test:browser:production`. Đã chạy qua loopback và IP LAN bằng Chrome headless, 375px không tràn ngang trên các màn hình đã thử, không exception JavaScript chưa xử lý. Log `/private/tmp/restaurant-9b-browser.log`, `/private/tmp/restaurant-9b-browser-lan.log`. Database tự tạo/dọn; Chrome chạy profile thử riêng.
+
+**[TOOL CHẠY THỦ CÔNG — build]** Production build và quét localhost/secret đạt như mục G/H. Không cộng assertion Chrome vào số 292 backend tests.
+
+## L. Final code review
+
+**[TOOL CHẠY THỦ CÔNG — review diff từ giai-doan-9a và code liên quan]** Không có tag 8 để review lịch sử trước 9A. Đã kiểm tra app/env/CORS, seed/reset, API base URL, script browser, schema hiện có và các điểm nối order/token/realtime. Không thêm schema/index mới, đổi API contract nghiệp vụ, xóa code nghiệp vụ hay thêm package. Không thấy TODO/FIXME/debug frontend trong phạm vi tìm; localhost còn trong log khởi động, env mẫu và test local, không còn fallback cố định trong client. QR không lưu URL trong DB. Không refactor để làm đẹp code.
+
+**[TEST TỰ ĐỘNG]** Hai lỗi phát hiện trong code mới đã sửa, giữ nguyên yêu cầu kiểm tra:
+
+| File | Vấn đề | Sửa và kiểm chứng |
+|---|---|---|
+| demoData.js | Mongoose tự gán updatedAt khi tạo làm lệch timestamps của lịch sử mẫu | Chỉ lệnh save dữ liệu lịch sử dùng timestamps:false, vẫn validate schema và cung cấp đủ timestamps; test lịch sử/paidAt/now/ngày VN đạt |
+| demo.test.js | URL.pathname còn mã hóa dấu/khoảng trắng của đường dẫn Mac, child process không tìm được script | Dùng fileURLToPath; CLI seed/reset/check:data chạy thật và assertion đúng lý do từ chối đạt |
+
+**[TOOL CHẠY THỦ CÔNG — giới hạn và chưa xử lý]** Không phát hiện bug nghiệp vụ mới cần sửa ngoài phạm vi 9B. Giới hạn phiên JWT bị sao chép chưa thu hồi, storage đọc được bởi JavaScript và rủi ro timing của browser workflow cũ đã ghi ở 9A vẫn giữ nguyên; không tự thay cơ chế xác thực hoặc nới assertion. Seed không có transaction/khóa liên tiến trình; hướng dẫn chỉ chạy một tiến trình và không tự rollback dữ liệu khi lỗi. Thiếu client/dist phải build trước, không tự build khi start server. Những điểm này được ghi rõ trong hướng dẫn vận hành.
+
+Các file thay đổi theo danh sách được duyệt:
+
+| Nhóm | File |
+|---|---|
+| Mới — seed/reset | server/scripts/demoData.js, seedDemo.js, resetDemo.js; server/tests/demo.test.js |
+| Mới — production/client/test | client/src/api/baseUrl.js; server/tests/productionServe.test.js; server/tests-browser/production.mjs |
+| Sửa — runtime backend | server/src/app.js, server/src/config/env.js, server/src/sockets/realtimeServer.js |
+| Sửa — runtime client | client/src/api/axiosClient.js, client/src/api/publicMenuApi.js, client/src/realtime/socket.js |
+| Sửa — script/cấu hình | server/package.json, server/.env.example, client/.env.example; server/tests-browser/orders.mjs, workflow.mjs, realtime.mjs |
+| Sửa — tài liệu | README.md và chỉ phần 9B mới trong GIAI_DOAN_9.md |
+| Sửa — local không commit | client/.env: để trống VITE_API_BASE_URL |
+
+### Chưa xử lý — bổ sung sau đối chiếu log 9B
+
+1. **[TOOL CHẠY THỦ CÔNG — đối chiếu Docker logs và lịch sử Sleep]** MongoDB ngắt khi Mac vào Sleep: các mốc Sleep 12:20:35/12:59:33 ngày 22/09/2026 trùng sát log client ngắt kết nối 12:20:37/12:59:35 (giờ Việt Nam), container RestartCount=0. Hệ thống tự kết nối lại. Phòng tránh khi demo: không để Mac ngủ.
+2. **[TOOL CHẠY THỦ CÔNG — đọc browser test scripts]** Helper Chrome/CDP trùng lặp giữa các browser test script. Chỉ thuộc test, chưa tách dùng chung.
+
+## M. Chưa kiểm tra
+
+- **[CHƯA KIỂM TRA — Henry cần làm]** Điện thoại vật lý, camera quét QR, Safari/iOS/Android, network isolation giữa thiết bị, khóa màn hình/chuyển app/Wi-Fi mất 20 giây thật.
+- **[CHƯA KIỂM TRA — Henry cần làm]** Deployment tài khoản thật, HTTPS/WSS, proxy/IP rate limit/log hosting, Atlas và free plan/sleep.
+- **[CHƯA KIỂM TRA — Henry cần làm]** Kiểm tra ổn định MongoDB/Docker/mạng khi máy chạy lâu hoặc ngủ/thức; phiên production local có log mất/kết nối lại như mục F, chưa xác định nguyên nhân.
+- **[CHƯA KIỂM TRA — Henry cần làm]** Backup/restore thật vào database thử và kiểm chứng dữ liệu khôi phục; chưa seed database demo bền vững của Henry.
+- **[CHƯA KIỂM TRA — Henry cần làm]** Tải lớn, trình duyệt khác và những giới hạn/rủi ro đã ghi ở 9A; không coi test hữu hạn là chứng minh không còn mọi lỗi.
+
+## N. Henry cần làm
+
+1. **[CHƯA KIỂM TRA — Henry cần làm]** Trên máy khác, bỏ API localhost trong client/.env nếu còn; file .env.example không tự sửa cấu hình cũ. Giữ secret chỉ ở server.
+2. **[CHƯA KIỂM TRA — Henry cần làm]** Chọn database demo riêng, cấu hình DEMO_DB_NAME và hai mật khẩu trong server/.env, seed/check:data rồi restart backend đọc đúng DB. Chỉ reset khi chắc chắn toàn DB đó có thể xóa.
+3. **[CHƯA KIỂM TRA — Henry cần làm]** Thực hiện checklist LAN README mục 17; đăng nhập lại từng tab admin/staff và khi đổi origin; Bàn 05 trống, mở lại QR đúng IP tại phòng bảo vệ.
+4. **[CHƯA KIỂM TRA — Henry cần làm]** Thử điện thoại Android/iOS thật, khóa màn hình/chuyển app/mất mạng/reload. Tập demo và quay video dự phòng.
+5. **[CHƯA KIỂM TRA — Henry cần làm]** Nếu deploy: build client trước, start server sau, xác minh proxy/HTTPS/WSS/free plan nếu dùng; backup và thực hành restore trên DB thử trước thay đổi lớn.
+
+**ĐÃ DỪNG SAU 9B — KHÔNG THỰC HIỆN LẠI 9C.**

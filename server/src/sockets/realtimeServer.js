@@ -19,12 +19,12 @@ export function initializeRealtime(
   { authCheckIntervalMs = 5000 } = {},
 ) {
   const io = new Server(httpServer, {
-    cors: { origin: env.clientOrigin, methods: ['GET', 'POST'] },
+    cors: { origin: env.allowedOrigins, methods: ['GET', 'POST'] },
     // CORS không bảo vệ WebSocket; kiểm tra Origin cả ở bước mở kết nối.
     allowRequest: (req, done) =>
       done(
         null,
-        !req.headers.origin || req.headers.origin === env.clientOrigin,
+        !req.headers.origin || env.allowedOrigins.includes(req.headers.origin),
       ),
     maxHttpBufferSize: 16 * 1024,
     // Không dùng connectionStateRecovery: client luôn join + ack + đọc lại API.

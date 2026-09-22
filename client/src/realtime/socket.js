@@ -1,7 +1,8 @@
 import { io } from 'socket.io-client';
+import { apiBaseUrl } from '../api/baseUrl.js';
 
 const apiURL = new URL(
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
+  apiBaseUrl,
   window.location.origin,
 );
 // Singleton: mỗi tab chỉ tạo một đối tượng socket. Component không gọi io() lần nữa.

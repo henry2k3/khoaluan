@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { getAccessToken } from '../utils/authStorage.js';
+import { apiBaseUrl } from './baseUrl.js';
 
 // Các hàm gọi API dùng chung địa chỉ backend và thời gian chờ.
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
+  baseURL: apiBaseUrl,
   timeout: 10000,
 });
 
